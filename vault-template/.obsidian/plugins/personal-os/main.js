@@ -724,6 +724,55 @@ class POSView extends ItemView {
       r.createDiv({ cls: "pos-set-desc", text: v });
     });
 
+    this.section("💾 备份（库 + Hermes 核心 + Hindsight 数据 → 三个 tar.gz）");
+    const bk = this.body.createDiv({ cls: "pos-chart-wrap" });
+    const bkDest = row(bk, "备份目标目录", "默认 NAS：/Volumes/home/Hermas Backup/personal-os", env.POS_BACKUP_DEST || "/Volumes/home/Hermas Backup/personal-os");
+    const bkLog = (await this.readSafe(".system/logs/backup.log")).trim().split("\n").pop() || "（从未备份）";
+    const bkRow = bk.createDiv({ cls: "pos-set-row" });
+    bkRow.createDiv({ cls: "pos-set-info" }).createDiv({ cls: "pos-set-desc", text: `上次备份：${bkLog}` });
+    const bkBtns = bkRow.createDiv({ cls: "pos-actions" });
+    let bkAutoOn = false;
+    try { bkAutoOn = require("fs").existsSync(require("os").homedir() + "/Library/LaunchAgents/com.elson.hermes.backup.plist"); } catch {}
+    const bkNow = bkBtns.createEl("button", { cls: "pos-btn", text: "立即备份" });
+    bkNow.addEventListener("click", () => {
+      try {
+        const { execFile } = require("child_process");
+        const base = this.app.vault.adapter.basePath;
+        const next = this.plugin.readEnvFile();
+        next.POS_BACKUP_DEST = bkDest.value.trim();
+        this.plugin.writeEnvFile(next);
+        new Notice("备份运行中…（NAS 大文件可能要一两分钟）");
+        execFile("/bin/bash", [`${base}/03-Agents/automation/bin/rtk`, "backup"], { timeout: 600000 }, (err, out) => {
+          new Notice(err ? "❌ 备份失败：" + err.message : "✅ 备份完成", 6000);
+          this.render();
+        });
+      } catch { new Notice("当前环境不支持，请在终端运行 rtk backup"); }
+    });
+    const bkAuto = bkBtns.createEl("button", { cls: "pos-btn pos-btn-ghost", text: bkAutoOn ? "关闭自动备份（每日22:30）" : "开启自动备份（每日22:30）" });
+    bkAuto.addEventListener("click", () => {
+      try {
+        const { execFile } = require("child_process");
+        const base = this.app.vault.adapter.basePath;
+        const next = this.plugin.readEnvFile();
+        next.POS_BACKUP_DEST = bkDest.value.trim();
+        this.plugin.writeEnvFile(next);
+        execFile("/bin/bash", [`${base}/03-Agents/automation/bin/rtk`, "backup-auto", bkAutoOn ? "off" : "on"], { timeout: 30000 }, (err) => {
+          new Notice(err ? "❌ " + err.message : "✅ 已" + (bkAutoOn ? "关闭" : "开启") + "自动备份");
+          this.render();
+        });
+      } catch { new Notice("请在终端运行 rtk backup-auto on"); }
+    });
+
+    this.section("🗄 NAS 收件箱扫描（旧 OS 功能移植）");
+    const nas = this.body.createDiv({ cls: "pos-chart-wrap" });
+    const nasIn = row(nas, "NAS 投递目录", "夜巡扫描顶层文件：文本智能分流、文件归桶；原件移入其 archive/。填 off 关闭", env.POS_NAS_INBOX || "/Volumes/home/OS-Inbox");
+    nasIn.addEventListener("change", () => {
+      const next = this.plugin.readEnvFile();
+      next.POS_NAS_INBOX = nasIn.value.trim();
+      this.plugin.writeEnvFile(next);
+      new Notice("✅ NAS 收件箱路径已保存（夜巡生效）");
+    });
+
     this.section("📱 手机端");
     const mob = this.body.createDiv({ cls: "pos-chart-wrap pos-md" });
     await MarkdownRenderer.render(this.app, [

@@ -19,6 +19,8 @@ rtk — OBSIDIAN AI OS 统一入口
   rtk ingest "文本"      凌乱文本 → 结构化推入 01-Inbox（也支持管道输入）
   rtk patrol             手动触发 Hermes 日巡检（队列消化+分发+ops-log）
   rtk refine             AI 蒸馏：精修 static 结构与双链 + 消化慢车道 Inbox（需 LLM Key）
+  rtk backup [目标目录]  全量备份：库 + Hermes 核心 + Hindsight 数据 → 三个 tar.gz（默认 POS_BACKUP_DEST）
+  rtk backup-auto on|off 每日 22:30 自动备份（launchd）
   rtk status             系统健康状态
   rtk install-cron       注册每晚 23:30 自动巡检（crontab 方式）
   rtk uninstall-cron     移除 crontab 巡检
@@ -43,6 +45,60 @@ case "${1:-help}" in
     ;;
   refine)
     "$PY" "$LIB/refine.py"
+    ;;
+  backup)
+    DEST="${2:-${POS_BACKUP_DEST:-$HOME/PersonalOS-Backups}}"
+    STAMP="$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$DEST" || { echo "❌ 目标不可写：$DEST（NAS 挂载了吗？）"; exit 1; }
+    echo "备份目标: $DEST"
+    # 1) Obsidian 库（排除插件缓存与日志）
+    tar -czf "$DEST/vault-$STAMP.tar.gz" -C "$(dirname "$ROOT")"       --exclude='*/node_modules' --exclude='*/.system/logs' "$(basename "$ROOT")"       && echo "  ✅ vault-$STAMP.tar.gz"
+    # 2) Hermes 核心（配置/SOUL/记忆/技能/cron，排除缓存与大库）
+    if [ -d "$HOME/.hermes" ]; then
+      tar -czf "$DEST/hermes-core-$STAMP.tar.gz" -C "$HOME"         --exclude='.hermes/*cache*' --exclude='.hermes/node' --exclude='.hermes/sandboxes'         --exclude='.hermes/state.db*' --exclude='.hermes/state-snapshots'         --exclude='.hermes/sessions' --exclude='.hermes/logs' --exclude='.hermes/hermes-setup'         .hermes && echo "  ✅ hermes-core-$STAMP.tar.gz"
+    fi
+    # 3) Hindsight 数据目录
+    if [ -d "$HOME/.hermes/hindsight" ]; then
+      tar -czf "$DEST/hindsight-$STAMP.tar.gz" -C "$HOME/.hermes" hindsight         && echo "  ✅ hindsight-$STAMP.tar.gz"
+    fi
+    # 保留最近 14 份，旧的清掉
+    for pfx in vault hermes-core hindsight; do
+      ls -t "$DEST/$pfx-"*.tar.gz 2>/dev/null | tail -n +15 | xargs rm -f 2>/dev/null || true
+    done
+    echo "$(date '+%Y-%m-%d %H:%M:%S') backup → $DEST" >> "$ROOT/.system/logs/backup.log"
+    echo "✅ 备份完成（保留最近14份）"
+    ;;
+  backup-auto)
+    BPLIST="$HOME/Library/LaunchAgents/com.personalos.backup.plist"
+    if [ "${2:-on}" = "off" ]; then
+      launchctl unload "$BPLIST" 2>/dev/null || true; rm -f "$BPLIST"
+      echo "✅ 自动备份已关闭"
+    else
+      # TCC：用已授权 FDA 的 python 真身作为责任进程，子进程 tar 才能读 iCloud
+      PYBIN="$("$PY" -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+      cat > "$BPLIST" <<BEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.personalos.backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$PYBIN</string>
+    <string>-c</string>
+    <string>import subprocess; subprocess.run(["/bin/bash", "$BIN_DIR/rtk", "backup"])</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>22</integer><key>Minute</key><integer>30</integer></dict>
+  <key>StandardOutPath</key><string>$ROOT/.system/logs/backup.log</string>
+  <key>StandardErrorPath</key><string>$ROOT/.system/logs/backup.log</string>
+</dict>
+</plist>
+BEOF
+      launchctl unload "$BPLIST" 2>/dev/null || true
+      launchctl load "$BPLIST"
+      echo "✅ 自动备份已开启：每日 22:30（vault + Hermes 核心 + Hindsight → NAS）"
+    fi
     ;;
   status)
     echo "=== OBSIDIAN AI OS 状态 ==="

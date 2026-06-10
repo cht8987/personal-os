@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hermes 日巡检：消化队列 → 分发 Inbox → 固化 ops-log → 健康告警。
 
-铁律：先本地状态验证，后远程原因推导；只在 PERSONAL OS/ 内读写。
+铁律：先本地状态验证，后远程原因推导；只在 ELSON OS MIND/ 内读写。
 """
 import re
 import shutil
@@ -119,6 +119,46 @@ BINARY_EXT = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".zip",
 AUDIO_EXT = {".m4a", ".mp3", ".wav", ".aac", ".ogg", ".flac"}
 
 
+def scan_nas_inbox():
+    """NAS 投递箱扫描（旧 OS 功能移植）：只取顶层文件，分类子目录不碰。
+
+    文本 → ingest 智能分流；二进制/音频 → 库内对应桶。
+    原件移入 NAS 的 archive/（数据不灭）。POS_NAS_INBOX=off 可关闭。
+    """
+    import os
+    nas = os.environ.get("POS_NAS_INBOX", "off")
+    if nas.lower() == "off":
+        return 0
+    nas = Path(nas)
+    if not nas.is_dir():
+        return 0
+    done_dir = nas / "archive" / f"{datetime.now():%Y-%m}"
+    n = 0
+    for f in sorted(nas.iterdir()):
+        if not f.is_file() or f.name.startswith("."):
+            continue
+        ext = f.suffix.lower()
+        try:
+            if ext in {".md", ".txt"}:
+                text = f.read_text(encoding="utf-8", errors="replace")
+                ingest(text, source="nas")
+            elif ext in AUDIO_EXT:
+                dest = INBOX / "legacy" / "voice-notes"
+                dest.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dest / f.name)
+            else:
+                dest = INBOX / "legacy" / "temporary"
+                dest.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, dest / f.name)
+            done_dir.mkdir(parents=True, exist_ok=True)
+            f.rename(done_dir / f.name)
+            log(f"NAS 收件 {f.name} → 已入库（原件归档 NAS archive/）")
+            n += 1
+        except Exception as e:
+            log(f"NAS 收件失败 {f.name}: {e}")
+    return n
+
+
 def classify_strays():
     """Inbox 顶层的非 markdown 文件自动分桶：二进制→temporary，音频→voice-notes。"""
     moved = 0
@@ -166,6 +206,7 @@ date: {day}
 | 指标 | 值 |
 | --- | --- |
 | 队列消化 | {queued} 条 |
+| NAS 收件 | {counts.get('nas', 0)} |
 | 日记归档 | {counts['journal']} |
 | 任务归档 | {counts['task']} |
 | 消费归档 | {counts['cost']} |
@@ -183,8 +224,10 @@ def main():
     log("=== patrol 开始 ===")
     verify_local_state()                 # 1. 本地状态验证
     queued = consume_queue()             # 2. 消化移动端队列（原文归档 mobile-notes）
+    nas_n = scan_nas_inbox()             # 2.5 NAS 投递箱扫描
     counts = dispatch_inbox()            # 3. 分发归档
     counts["strays"] = classify_strays() # 4. 顶层杂物分桶
+    counts["nas"] = nas_n
     stale = check_stale()                # 5. 滞留告警
     dest = write_daily_oplog(queued, counts, stale)
     log(f"=== patrol 完成 → {dest.relative_to(ROOT)} ===")

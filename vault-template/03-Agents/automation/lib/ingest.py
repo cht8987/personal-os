@@ -12,9 +12,25 @@ import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]   # → PERSONAL OS/
+ROOT = Path(__file__).resolve().parents[3]
 INBOX = ROOT / "01-Inbox"
 SCHEMA_DIR = ROOT / ".system" / "schemas"
+
+
+def _load_env_file():
+    """读取 ~/.personal-os/llm.env（密钥存库外，符合 S3 铁律；launchd 环境也能拿到）。"""
+    p = Path.home() / ".personal-os" / "llm.env"
+    if not p.is_file():
+        return
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip().strip('"'))
+
+
+_load_env_file()
+CURRENCY = os.environ.get("POS_CURRENCY", "MYR")   # 马来西亚令吉（RM）
 
 CATEGORIES = ["餐饮", "交通", "居住", "订阅", "设备", "学习", "医疗",
               "人情", "娱乐", "其他", "收入"]
@@ -23,11 +39,11 @@ SYSTEM_PROMPT = """你是 OBSIDIAN AI OS 的入流引擎。对用户的凌乱文
 只返回 JSON（无 markdown 围栏），契约如下，五键必须齐全：
 {"journal": {"core_progress": "", "thoughts": "", "mood": "", "tags": []},
  "tasks": [{"text": "", "priority": "high|mid|low", "due": "YYYY-MM-DD或空", "tags": []}],
- "costs": [{"item": "", "amount": -0.0, "currency": "CNY", "category": "", "channel": ""}],
+ "costs": [{"item": "", "amount": -0.0, "currency": "MYR", "category": "", "channel": ""}],
  "learning": [{"topic": "", "content": "", "tags": []}],
  "profile": [{"aspect": "goals|identity|behavioral|life|resources|constraints", "change": ""}]}
 规则：保留用户原文语义禁止改写事实；相对日期换算为绝对日期（今天是 {today}）；\
-无金额不生成 cost；消费分类闭集：%s；\
+无金额不生成 cost；消费默认币种 MYR（马来西亚令吉 RM）；消费分类闭集：%s；\
 learning=学到的知识/读书笔记/课程心得（成块知识，区别于日记流水）；\
 profile=对个人画像的更新意图（设定目标/调整原则/资源变化），只记变更意图不直接改写。""" % "/".join(CATEGORIES)
 
@@ -53,22 +69,28 @@ def unique(path: Path) -> Path:
 
 
 # ---------------------------------------------------------------- LLM 调用
+SILICONFLOW_API_URL = os.environ.get("SILICONFLOW_API_URL", "https://api.siliconflow.com/v1").rstrip("/")
+SILICONFLOW_MODEL = os.environ.get("SILICONFLOW_MODEL", "nex-agi/Nex-N2-Pro")
+
+
 def call_llm(raw_text: str):
-    """调用 os.config.yml 指定的高性价比模型。失败返回 None（触发 offline 降级）。"""
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    """调用 SiliconFlow OpenAI-compatible Chat Completions。失败返回 None（触发 offline 降级）。"""
+    api_key = os.environ.get("SILICONFLOW_API_KEY")
     if not api_key:
+        print("[ingest] SILICONFLOW_API_KEY 未配置，降级 offline", file=sys.stderr)
         return None
     body = json.dumps({
-        "model": "deepseek-chat",
+        "model": SILICONFLOW_MODEL,
         "messages": [
             {"role": "system",
              "content": SYSTEM_PROMPT.replace("{today}", now().strftime("%Y-%m-%d"))},
             {"role": "user", "content": raw_text},
         ],
         "temperature": 0.1,
+        "max_tokens": 1200,
     }).encode()
     req = urllib.request.Request(
-        "https://api.deepseek.com/chat/completions", data=body,
+        f"{SILICONFLOW_API_URL}/chat/completions", data=body,
         headers={"Content-Type": "application/json",
                  "Authorization": f"Bearer {api_key}"})
     try:
@@ -77,6 +99,7 @@ def call_llm(raw_text: str):
         content = re.sub(r"^```(json)?|```$", "", content.strip(), flags=re.M).strip()
         data = json.loads(content)
         assert {"journal", "tasks", "costs"} <= set(data)
+        print(f"[ingest] LLM 调用成功：{SILICONFLOW_MODEL}", file=sys.stderr)
         return data
     except Exception as e:
         print(f"[ingest] LLM 调用失败，降级 offline: {e}", file=sys.stderr)
@@ -85,7 +108,7 @@ def call_llm(raw_text: str):
 
 # ---------------------------------------------------------------- offline 规则引擎
 TASK_HINT = re.compile(r"(记得|要做|待办|别忘了|明天.*?[做去买改写发]|todo)", re.I)
-COST_HINT = re.compile(r"(?:花了?|支出|买.*?花|付了?|消费)\s*([0-9]+(?:\.[0-9]+)?)\s*[元块]?")
+COST_HINT = re.compile(r"(?:花了?|支出|买.*?花|付了?|消费|RM|rm)\s*([0-9]+(?:\.[0-9]+)?)\s*[元块]?")
 LEARN_HINT = re.compile(r"(学习了|学到|学会|读了|看完|上了.*?课|心得|笔记[:：])")
 PROFILE_HINT = re.compile(r"(设定目标|新目标|定个目标|目标[:：]|更新画像|调整原则|我决定以后|profile)", re.I)
 
@@ -101,7 +124,7 @@ def offline_extract(raw_text: str):
         m = COST_HINT.search(line)
         if m:
             costs.append({"item": line[:20], "amount": -float(m.group(1)),
-                          "currency": "CNY", "category": "其他", "channel": ""})
+                          "currency": CURRENCY, "category": "其他", "channel": ""})
             continue
         if PROFILE_HINT.search(line):
             profile.append({"aspect": "goals" if "目标" in line else "identity",
@@ -175,7 +198,7 @@ def write_costs(costs, ts):
     for c in costs:
         cat = c.get("category") if c.get("category") in CATEGORIES else "其他"
         lines.append(f"| {ts:%Y-%m-%d} | {c.get('item', '')} | {c['amount']:.2f} "
-                     f"| {c.get('currency', 'CNY')} | {cat} | {c.get('channel', '')} | |")
+                     f"| {c.get('currency', CURRENCY)} | {cat} | {c.get('channel', '')} | |")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 

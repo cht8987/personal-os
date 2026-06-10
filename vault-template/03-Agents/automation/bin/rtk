@@ -6,6 +6,8 @@ BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$BIN_DIR/../../.." && pwd)"
 LIB="$ROOT/03-Agents/automation/lib"
 PY="${RTK_PYTHON:-python3}"
+# 库外密钥配置（由插件设置页写入，符合 S3 铁律）
+[ -f "$HOME/.personal-os/llm.env" ] && set -a && . "$HOME/.personal-os/llm.env" && set +a
 CRON_LINE="30 23 * * * \"$BIN_DIR/rtk\" patrol >> \"$ROOT/.system/logs/cron.log\" 2>&1"
 
 usage() {
@@ -51,7 +53,12 @@ case "${1:-help}" in
     else
       echo "上次巡检 : 从未运行"
     fi
-    [ -n "${DEEPSEEK_API_KEY:-}" ] && echo "LLM      : deepseek ✅" || echo "LLM      : 未配置(offline 规则引擎降级) ⚠️"
+    model="${SILICONFLOW_MODEL:-nex-agi/Nex-N2-Pro}"
+    if [ -n "${SILICONFLOW_API_KEY:-}" ]; then
+      echo "LLM      : siliconflow ✅ ($model)"
+    else
+      echo "LLM      : 未配置(offline 规则引擎降级) ⚠️"
+    fi
     ;;
   install-cron)
     (crontab -l 2>/dev/null | grep -vF "$BIN_DIR/rtk\" patrol"; echo "$CRON_LINE") | crontab -

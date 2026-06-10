@@ -53,16 +53,25 @@ case "${1:-help}" in
     echo "备份目标: $DEST"
     # 1) Obsidian 库（排除插件缓存与日志）
     tar -czf "$DEST/vault-$STAMP.tar.gz" -C "$(dirname "$ROOT")"       --exclude='*/node_modules' --exclude='*/.system/logs' "$(basename "$ROOT")"       && echo "  ✅ vault-$STAMP.tar.gz"
-    # 2) Hermes 核心（配置/SOUL/记忆/技能/cron，排除缓存与大库）
-    if [ -d "$HOME/.hermes" ]; then
-      tar -czf "$DEST/hermes-core-$STAMP.tar.gz" -C "$HOME"         --exclude='.hermes/*cache*' --exclude='.hermes/node' --exclude='.hermes/sandboxes'         --exclude='.hermes/state.db*' --exclude='.hermes/state-snapshots'         --exclude='.hermes/sessions' --exclude='.hermes/logs' --exclude='.hermes/hermes-setup'         .hermes && echo "  ✅ hermes-core-$STAMP.tar.gz"
+    # 2) Hermes：委托成熟脚本（NAS等待/原子写/30天保留），否则通用 tar
+    if [ -x "$HOME/.hermes/scripts/hermes-backup-nas.sh" ]; then
+      bash "$HOME/.hermes/scripts/hermes-backup-nas.sh" && echo "  ✅ hermes（委托 hermes-backup-nas.sh → Hermas Backup/）" || echo "  ⚠️ hermes 备份脚本失败"
+    elif [ -d "$HOME/.hermes" ]; then
+      tar -czf "$DEST/hermes-core-$STAMP.tar.gz" -C "$HOME" \
+        --exclude='.hermes/hermes-agent' --exclude='.hermes/hermes-office' \
+        --exclude='.hermes/hermes-skill-factory' --exclude='.hermes/rtk-hermes' \
+        --exclude='.hermes/*cache*' --exclude='.hermes/node' --exclude='.hermes/bin' \
+        --exclude='.hermes/lsp' --exclude='.hermes/sandboxes' --exclude='.hermes/sessions' \
+        --exclude='.hermes/state.db*' --exclude='.hermes/state-snapshots' \
+        --exclude='.hermes/logs' --exclude='.hermes/hermes-setup' \
+        .hermes && echo "  ✅ hermes-core-$STAMP.tar.gz"
     fi
-    # 3) Hindsight 数据目录
-    if [ -d "$HOME/.hermes/hindsight" ]; then
-      tar -czf "$DEST/hindsight-$STAMP.tar.gz" -C "$HOME/.hermes" hindsight         && echo "  ✅ hindsight-$STAMP.tar.gz"
+    # 3) Hindsight：委托 PG 逻辑 dump（容器内 pg_dump，防 WAL 损坏），不在则跳过
+    if [ -x "$HOME/.hermes/scripts/hindsight-pg-dump-nas.sh" ]; then
+      bash "$HOME/.hermes/scripts/hindsight-pg-dump-nas.sh" && echo "  ✅ hindsight（pg_dump → Hindsight Backup/）" || echo "  ⚠️ hindsight dump 失败/跳过"
     fi
     # 保留最近 14 份，旧的清掉
-    for pfx in vault hermes-core hindsight; do
+    for pfx in vault hermes-core; do
       ls -t "$DEST/$pfx-"*.tar.gz 2>/dev/null | tail -n +15 | xargs rm -f 2>/dev/null || true
     done
     echo "$(date '+%Y-%m-%d %H:%M:%S') backup → $DEST" >> "$ROOT/.system/logs/backup.log"

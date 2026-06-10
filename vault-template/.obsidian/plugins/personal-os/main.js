@@ -8,6 +8,7 @@ const VIEW_TYPE = "personal-os-dashboard";
 const DEFAULTS = {
   currency: "RM",
   autoOpen: true,
+  lang: "zh",
   llmUrl: "https://api.siliconflow.com/v1",
   llmModel: "nex-agi/Nex-N2-Pro",
 };
@@ -57,7 +58,12 @@ class FormModal extends Modal {
     });
     const foot = c.createDiv({ cls: "pos-foot" });
     foot.createDiv({ cls: "pos-hint", text: this.opts.hint || "⌘+Enter 快速提交" });
-    const btn = foot.createEl("button", { cls: "pos-submit mod-cta", text: this.opts.submitText || "确认 ✓" });
+    const btns = foot.createDiv({ cls: "pos-actions" });
+    if (this.opts.secondary) {
+      const sec = btns.createEl("button", { cls: "pos-submit pos-btn-ghost", text: this.opts.secondary.text });
+      sec.addEventListener("click", () => this.submit(this.opts.secondary.handler));
+    }
+    const btn = btns.createEl("button", { cls: "pos-submit mod-cta", text: this.opts.submitText || "确认 ✓" });
     btn.addEventListener("click", () => this.submit());
     c.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") this.submit();
@@ -65,11 +71,11 @@ class FormModal extends Modal {
     const first = Object.values(this.widgets)[0];
     if (first) first.focus();
   }
-  submit() {
+  submit(handler) {
     const v = {};
     for (const k in this.widgets) v[k] = this.widgets[k].value.trim();
     if (this.opts.require && !v[this.opts.require]) { new Notice("必填项还没填哦"); return; }
-    this.onSubmit(v);
+    (handler || this.onSubmit)(v);
     this.close();
   }
   onClose() { this.contentEl.empty(); }
@@ -139,6 +145,7 @@ const PAGES = [
   { id: "projects", icon: "📦", label: "项目" },
   { id: "knowledge", icon: "📚", label: "知识" },
   { id: "output", icon: "📤", label: "产出" },
+  { id: "agents", icon: "🤖", label: "Agents" },
   { id: "ops", icon: "🛡", label: "运维" },
   { id: "settings", icon: "⚙️", label: "设置" },
 ];
@@ -215,6 +222,7 @@ class POSView extends ItemView {
       home: () => this.renderHome(), finance: () => this.renderFinance(),
       goals: () => this.renderGoals(), projects: () => this.renderProjects(),
       knowledge: () => this.renderKnowledge(), output: () => this.renderOutput(),
+      agents: () => this.renderAgents(),
       ops: () => this.renderOps(), settings: () => this.renderSettings(),
     }[this.page];
     await r();
@@ -390,8 +398,9 @@ class POSView extends ItemView {
     this.linkCard(links, "📚", "学习笔记", "Learning Knowledge", () => this.plugin.createLearning(this, () => { this.page = "knowledge"; this.render(); }));
     this.linkCard(links, "🌐", "Wiki 条目", "沉淀进知识体系", () => this.plugin.createWiki(this, () => { this.page = "knowledge"; this.render(); }));
     this.linkCard(links, "📤", "生成产出", "Report / Summary / Content", () => { this.page = "output"; this.render(); });
+    this.linkCard(links, "🤖", "Agents 协作", "常用指令 + 工作流指南", () => { this.page = "agents"; this.render(); });
     this.linkCard(links, "🛡", "Ops-Log 巡检", "自动化与日志", () => { this.page = "ops"; this.render(); });
-    this.linkCard(links, "⚙️", "系统设置", "LLM / 币种 / 手机端", () => { this.page = "settings"; this.render(); });
+    this.linkCard(links, "⚙️", "系统设置", "LLM / 语言 / 币种 / 手机端", () => { this.page = "settings"; this.render(); });
   }
 
   /* ================= 页面：财务 ================= */
@@ -560,6 +569,33 @@ class POSView extends ItemView {
     }
   }
 
+  /* ================= 页面：Agents ================= */
+  async renderAgents() {
+    this.hero("与 Agents 协作", "这套 OS 的精髓：你做决定，Agents 干活", [
+      { text: "打开完整指南", ghost: true, fn: () => this.openNote("03-Agents/AGENTS-GUIDE.md") },
+    ]);
+    this.section("常用指令（点卡片复制，粘贴给 Hermes Console / Claude）");
+    const prompts = [
+      ["📊", "生成本周报告", "读取本周的 02-Memory/dynamic/ops-log/ 日报与账本，按 .system/templates/report.template.md 的结构，把 04-Output/Report/ 中最新的 report 草稿补写完整。数据必须可溯源，不得编造。"],
+      ["🧹", "整理这篇笔记", "读取当前打开的笔记，优化结构与措辞（保留全部事实），为相关概念添加 [[双链]]，更新 updated 日期。改动前先告诉我你的修改计划。"],
+      ["🔍", "本月花销分析", "读取 02-Memory/dynamic/ops-log/ 本月账本，按分类汇总并指出异常支出，用一张表格回答。金额属敏感数据，仅在对话中展示，不要写入任何文件。"],
+      ["📦", "推进项目", "读取 02-Memory/static/projects/ 下我指定的项目笔记，根据「下一步」与决策记录，给出本周可执行的三步行动，并把它们追加为任务（带 #project 标签）写入 02-Memory/dynamic/ops-log/tasks.md。"],
+      ["🪪", "确认画像变更", "读取 01-Inbox/ 顶层的 profile-*.md 待确认条目，逐条向我复述并询问是否合入；我确认后写入 02-Memory/static/os/profile/ 对应维度并删除原文件。"],
+      ["🧬", "固化本周记忆", "从本周 ops-log 和日记中提取关键决策与教训，retain 进 Hindsight 对应 bank（os/projects/learning），private 内容只存抽象模式不存数字。"],
+    ];
+    const grid = this.body.createDiv({ cls: "pos-links" });
+    prompts.forEach(([icon, title, text]) => {
+      this.linkCard(grid, icon, title, "点击复制指令", async () => {
+        await navigator.clipboard.writeText(text);
+        new Notice("✅ 已复制，粘贴给 Hermes Console 或 Claude 即可");
+      });
+    });
+    this.section("协作指南（完整版）");
+    const wrap = this.body.createDiv({ cls: "pos-chart-wrap pos-md" });
+    const md = await this.readSafe("03-Agents/AGENTS-GUIDE.md");
+    if (md) await MarkdownRenderer.render(this.app, md.replace(/^---[\s\S]*?---/, ""), wrap, "03-Agents/AGENTS-GUIDE.md", this);
+  }
+
   /* ================= 页面：运维 ================= */
   async renderOps() {
     this.hero("运维 · Ops-Log 与自动化", "Hermes 每晚 23:30 巡检；这里随时手动触发", [
@@ -649,6 +685,22 @@ class POSView extends ItemView {
 
     this.section("通用");
     const gen = this.body.createDiv({ cls: "pos-chart-wrap" });
+    // 语言：影响 AI 处理语言（分流/蒸馏/翻译）；界面双语将在后续版本提供
+    const langRow = gen.createDiv({ cls: "pos-set-row" });
+    const li = langRow.createDiv({ cls: "pos-set-info" });
+    li.createDiv({ cls: "pos-set-name", text: "AI 处理语言 / AI Language" });
+    li.createDiv({ cls: "pos-set-desc", text: "English 模式下 AI 分流与蒸馏输出英文（自动翻译中文输入）" });
+    const langSel = langRow.createEl("select");
+    [["zh", "中文"], ["en", "English"]].forEach(([v2, t]) => langSel.createEl("option", { text: t, value: v2 }));
+    langSel.value = S.lang || "zh";
+    langSel.addEventListener("change", async () => {
+      S.lang = langSel.value;
+      const next = this.plugin.readEnvFile();
+      next.POS_LANG = S.lang;
+      this.plugin.writeEnvFile(next);
+      await this.plugin.saveSettings();
+      new Notice(S.lang === "en" ? "✅ AI will process in English" : "✅ AI 处理语言：中文");
+    });
     const curIn = row(gen, "币种符号", "看板显示用，默认 RM（账本记 MYR）", S.currency);
     curIn.addEventListener("change", async () => {
       S.currency = curIn.value.trim() || "RM";
@@ -740,14 +792,27 @@ module.exports = class PersonalOSPlugin extends Plugin {
         { key: "a", label: "有产生新的待办或消费吗？", type: "textarea", rows: 2, placeholder: "如：记得明天交电费。午饭花了 RM15" },
         { key: "t", label: "还有什么随想要记录？", type: "textarea", rows: 2, placeholder: "灵感、学到的东西、情绪、碎碎念……" },
       ],
-      submitText: "丢进 Inbox ✓", hint: "⌘+Enter 快速提交 · 全部留空则不提交",
+      submitText: "智能分流 ✓", hint: "⌘+Enter 智能分流 · 存原文 = 不提取，待每周蒸馏",
+      secondary: {
+        text: "存原文",
+        handler: async (v) => {
+          const text = [v.p, v.a, v.t].filter(Boolean).join("\n");
+          if (!text) { new Notice("什么都没写哦"); return; }
+          const dir = "01-Inbox/legacy/unprocessed";
+          if (!(await this.app.vault.adapter.exists(dir))) await this.app.vault.adapter.mkdir(dir);
+          await this.app.vault.adapter.write(`${dir}/note-${nowStamp()}.md`,
+            `---\ntype: raw\nstatus: inbox\ncreated: ${today()}\ntags: [unprocessed]\n---\n\n${text}\n`);
+          new Notice("✅ 原文已存 unprocessed（不提取，每周日蒸馏扫描）", 5000);
+          if (after) after();
+        },
+      },
     }, async (v) => {
       const text = [v.p, v.a, v.t].filter(Boolean).join("\n");
       if (!text) { new Notice("什么都没写哦"); return; }
       const dir = "01-Inbox/.queue";
       if (!(await this.app.vault.adapter.exists(dir))) await this.app.vault.adapter.mkdir(dir);
       await this.app.vault.adapter.write(`${dir}/q-desktop-${nowStamp()}.txt`, text);
-      new Notice("✅ 已入队。夜巡自动归档，或运维页「立即巡检」马上处理", 5000);
+      new Notice("✅ 已入队智能分流。夜巡自动归档（原文存 mobile-notes），或运维页「立即巡检」马上处理", 5000);
       if (after) after();
     }).open();
   }
@@ -918,8 +983,19 @@ module.exports = class PersonalOSPlugin extends Plugin {
         body = view.fm(v.title, "output", "status: draft\n") + `# ${v.title}\n\n${v.note || ""}\n`;
       }
       const p = `${type.dir}/${type.id}-${slug(v.title)}.md`;
-      await view.writeNote(p, body);
-      new Notice(`✅ 已生成草稿（完成后把 status 改为 final）`);
+      const ym = thisYM();
+      // 产出闭环：草稿自带 Agent Brief（指令 + 数据引用清单）
+      const brief = `\n\n---\n\n## 🤖 Agent Brief（完成后删除本区块）\n\n` +
+        `> 把下面的指令粘贴给 Hermes Console 或 Claude：\n\n` +
+        `\`\`\`\n请完成产出草稿 ${p}：\n` +
+        `1. 读取数据源：02-Memory/dynamic/ops-log/（本期日报）、cost-${ym}.md（账本）、dynamic/journal/（日记）\n` +
+        `2. 主题方向：${v.note || v.title}\n` +
+        `3. 按草稿现有结构补写完整内容，数据必须可溯源，禁止编造；private 内容不得引用\n` +
+        `4. 完成后删除 Agent Brief 区块，但保持 status: draft 由我审阅\n\`\`\`\n`;
+      await view.writeNote(p, body + brief);
+      const cmd = `请完成产出草稿 ${p}：读取 ops-log/账本/日记数据源，主题「${v.note || v.title}」，按草稿结构补写完整内容（数据可溯源、不编造、不引用 private），完成后删除 Agent Brief 区块，保持 status: draft 待我审阅。`;
+      try { await navigator.clipboard.writeText(cmd); } catch {}
+      new Notice("✅ 草稿已生成，Agent 指令已复制——粘贴给 Hermes Console 即可补写完整内容", 8000);
       if (after) after();
     }).open();
   }

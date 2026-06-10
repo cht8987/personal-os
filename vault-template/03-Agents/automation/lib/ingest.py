@@ -45,7 +45,10 @@ SYSTEM_PROMPT = """你是 OBSIDIAN AI OS 的入流引擎。对用户的凌乱文
 规则：保留用户原文语义禁止改写事实；相对日期换算为绝对日期（今天是 {today}）；\
 无金额不生成 cost；消费默认币种 MYR（马来西亚令吉 RM）；消费分类闭集：%s；\
 learning=学到的知识/读书笔记/课程心得（成块知识，区别于日记流水）；\
-profile=对个人画像的更新意图（设定目标/调整原则/资源变化），只记变更意图不直接改写。""" % "/".join(CATEGORIES)
+profile=对个人画像的更新意图（设定目标/调整原则/资源变化），只记变更意图不直接改写。{lang}""" % "/".join(CATEGORIES)
+
+LANG_RULE = ("\n所有提取结果字段值使用英文（如源文本为中文请翻译）。"
+             if os.environ.get("POS_LANG") == "en" else "")
 
 
 def now():
@@ -83,7 +86,7 @@ def call_llm(raw_text: str):
         "model": SILICONFLOW_MODEL,
         "messages": [
             {"role": "system",
-             "content": SYSTEM_PROMPT.replace("{today}", now().strftime("%Y-%m-%d"))},
+             "content": SYSTEM_PROMPT.replace("{today}", now().strftime("%Y-%m-%d")).replace("{lang}", LANG_RULE)},
             {"role": "user", "content": raw_text},
         ],
         "temperature": 0.1,
@@ -103,6 +106,29 @@ def call_llm(raw_text: str):
         return data
     except Exception as e:
         print(f"[ingest] LLM 调用失败，降级 offline: {e}", file=sys.stderr)
+        return None
+
+
+def call_llm_raw(prompt, max_tokens=4000):
+    """通用单轮补全（refine 蒸馏引擎复用）。失败返回 None。"""
+    api_key = os.environ.get("SILICONFLOW_API_KEY")
+    if not api_key:
+        return None
+    body = json.dumps({
+        "model": SILICONFLOW_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_tokens": max_tokens,
+    }).encode()
+    req = urllib.request.Request(
+        f"{SILICONFLOW_API_URL}/chat/completions", data=body,
+        headers={"Content-Type": "application/json",
+                 "Authorization": f"Bearer {api_key}"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.load(resp)["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"[llm] raw 调用失败: {e}", file=sys.stderr)
         return None
 
 

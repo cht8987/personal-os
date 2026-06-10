@@ -42,12 +42,14 @@ def consume_queue():
     if not QUEUE.is_dir():
         QUEUE.mkdir(parents=True)
         return 0
+    archive = INBOX / "legacy" / "mobile-notes"
+    archive.mkdir(parents=True, exist_ok=True)
     n = 0
     for f in sorted(QUEUE.glob("*.txt")):
         text = f.read_text(encoding="utf-8", errors="replace")
         written = ingest(text, source="phone")
         log(f"queue 消化 {f.name} → {len(written)} 个条目")
-        f.unlink()
+        f.rename(archive / f.name)   # 原文归档，数据不灭
         n += 1
     return n
 
@@ -113,6 +115,30 @@ def dispatch_inbox():
     return counts
 
 
+BINARY_EXT = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".zip", ".docx", ".xlsx", ".pptx"}
+AUDIO_EXT = {".m4a", ".mp3", ".wav", ".aac", ".ogg", ".flac"}
+
+
+def classify_strays():
+    """Inbox 顶层的非 markdown 文件自动分桶：二进制→temporary，音频→voice-notes。"""
+    moved = 0
+    for f in INBOX.iterdir():
+        if not f.is_file() or f.name.startswith("."):
+            continue
+        ext = f.suffix.lower()
+        if ext in AUDIO_EXT:
+            dest = INBOX / "legacy" / "voice-notes"
+        elif ext in BINARY_EXT:
+            dest = INBOX / "legacy" / "temporary"
+        else:
+            continue
+        dest.mkdir(parents=True, exist_ok=True)
+        f.rename(dest / f.name)
+        log(f"杂物分类 {f.name} → {dest.name}/")
+        moved += 1
+    return moved
+
+
 def check_stale():
     """Inbox 滞留告警（raw / needs-review 条目超期未处理）。"""
     stale = []
@@ -144,6 +170,7 @@ date: {day}
 | 任务归档 | {counts['task']} |
 | 消费归档 | {counts['cost']} |
 | 学习归档 | {counts['learning']} |
+| 杂物分桶 | {counts.get('strays', 0)} |
 | 画像变更待确认 | {pending_profile} |
 
 ## 告警
@@ -155,9 +182,10 @@ date: {day}
 def main():
     log("=== patrol 开始 ===")
     verify_local_state()                 # 1. 本地状态验证
-    queued = consume_queue()             # 2. 消化移动端队列
+    queued = consume_queue()             # 2. 消化移动端队列（原文归档 mobile-notes）
     counts = dispatch_inbox()            # 3. 分发归档
-    stale = check_stale()                # 4. 滞留告警
+    counts["strays"] = classify_strays() # 4. 顶层杂物分桶
+    stale = check_stale()                # 5. 滞留告警
     dest = write_daily_oplog(queued, counts, stale)
     log(f"=== patrol 完成 → {dest.relative_to(ROOT)} ===")
 

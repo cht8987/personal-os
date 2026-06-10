@@ -6,6 +6,13 @@ SRC="$(cd "$(dirname "$0")" && pwd)/vault-template"
 echo "==============================================="
 echo "  🧠 PERSONAL OS 安装向导"
 echo "==============================================="
+# 前置依赖检查
+if [ ! -d "/Applications/Obsidian.app" ]; then
+  echo
+  echo "⚠️  未检测到 Obsidian（本系统的显示层，免费）"
+  echo "   请先从 https://obsidian.md 下载安装，再重新运行本脚本。"
+  read -r -p "已安装好了？按回车继续，或 Ctrl+C 退出先去安装 > " _
+fi
 echo
 echo "请输入新库的存放路径（直接回车 = 默认 iCloud Obsidian 目录，可与手机同步）："
 DEFAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/PERSONAL OS"

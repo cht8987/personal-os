@@ -18,6 +18,7 @@ rtk — OBSIDIAN AI OS 统一入口
   rtk onboard            新人引导：交互式设定个人画像（profile）
   rtk ingest "文本"      凌乱文本 → 结构化推入 01-Inbox（也支持管道输入）
   rtk patrol             手动触发 Hermes 日巡检（队列消化+分发+ops-log）
+  rtk refine             AI 蒸馏：精修 static 结构与双链 + 消化慢车道 Inbox（需 LLM Key）
   rtk status             系统健康状态
   rtk install-cron       注册每晚 23:30 自动巡检（crontab 方式）
   rtk uninstall-cron     移除 crontab 巡检
@@ -39,6 +40,9 @@ case "${1:-help}" in
     ;;
   patrol)
     "$PY" "$LIB/patrol.py"
+    ;;
+  refine)
+    "$PY" "$LIB/refine.py"
     ;;
   status)
     echo "=== OBSIDIAN AI OS 状态 ==="
@@ -90,9 +94,17 @@ case "${1:-help}" in
 </dict>
 </plist>
 PEOF
+    # 每周日 22:00 蒸馏（refine）
+    RPLIST="$HOME/Library/LaunchAgents/com.personalos.refine.plist"
+    sed -e 's/com.personalos.patrol/com.personalos.refine/' \
+        -e 's|patrol.py|refine.py|' \
+        -e 's|<dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>30</integer></dict>|<dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>22</integer><key>Minute</key><integer>0</integer></dict>|' \
+        "$PLIST" > "$RPLIST"
+    launchctl unload "$RPLIST" 2>/dev/null || true
+    launchctl load "$RPLIST"
     launchctl unload "$PLIST" 2>/dev/null || true
     launchctl load "$PLIST"
-    echo "✅ launchd 已注册：每晚 23:30 巡检（睡眠错过将在唤醒后补跑）"
+    echo "✅ launchd 已注册：每晚 23:30 巡检 + 每周日 22:00 AI 蒸馏"
     echo "   手动触发验证: launchctl start com.personalos.patrol"
     ;;
   uninstall-launchd)

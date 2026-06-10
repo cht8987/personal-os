@@ -23,6 +23,7 @@ ai-editable: false
 | --- | --- | --- | --- |
 | `01-Inbox/` | ✅ | ✅ | ingest 唯一写入口；分发后清空 |
 | `02-Memory/dynamic/` | ✅ | ✅ 仅追加 | 禁止改写历史记录 |
+| `02-Memory/dynamic/raw/` | ✅ | ❌ **用户自留地** | AI 只读；蒸馏引擎只提炼进 Wiki，不改写原文（仅追加 distilled 戳） |
 | `02-Memory/static/os/profile/` | ✅ | ⚠️ 须用户确认 | 个人画像，AI 不得擅自改写 |
 | `02-Memory/static/`（其余） | ✅ | ✅ | 知识沉淀区 |
 | `03-Agents/` | ✅ | ⚠️ 须用户确认 | 改 Agent 行为 = 改系统，需授权 |

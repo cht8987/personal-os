@@ -1,0 +1,118 @@
+/* Personal OS v0.2 — 视觉层 */
+
+/* ===== 引导式记录弹窗 ===== */
+.pos-modal .modal { max-width: 560px; }
+.pos-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 4px;
+}
+.pos-head .pos-logo {
+  font-size: 26px; line-height: 1;
+}
+.pos-head h2 { margin: 0; font-size: 20px; }
+.pos-sub {
+  color: var(--text-muted); font-size: 12.5px; margin: 6px 0 18px;
+}
+.pos-step {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.pos-step:focus-within {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), .18);
+}
+.pos-step-label {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 13.5px; margin-bottom: 8px;
+}
+.pos-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  font-size: 11px; font-weight: 700;
+}
+.pos-step textarea {
+  width: 100%; border: none; background: transparent; resize: vertical;
+  font-size: 13.5px; line-height: 1.55; min-height: 54px; padding: 0;
+}
+.pos-step textarea:focus { outline: none; box-shadow: none; }
+.pos-foot {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 16px;
+}
+.pos-hint { color: var(--text-faint); font-size: 11.5px; }
+.pos-submit {
+  padding: 8px 22px; border-radius: 10px; font-weight: 600;
+}
+
+/* ===== 总览看板（网页式 Page） ===== */
+.pos-dash {
+  padding: 28px 32px; max-width: 880px; margin: 0 auto;
+  -webkit-user-select: none; user-select: none;
+}
+.pos-dash-hero {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+}
+.pos-dash-hero h1 { margin: 0; font-size: 24px; }
+.pos-dash-hero .pos-date { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+.pos-capture-btn {
+  background: var(--interactive-accent); color: var(--text-on-accent);
+  border: none; border-radius: 12px; padding: 10px 20px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(var(--interactive-accent-rgb), .35);
+  transition: transform .12s ease;
+}
+.pos-capture-btn:hover { transform: translateY(-1px); }
+
+.pos-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; margin-bottom: 26px;
+}
+.pos-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px; padding: 18px;
+}
+.pos-card .pos-card-icon { font-size: 18px; }
+.pos-card .pos-card-num {
+  font-size: 30px; font-weight: 800; margin: 6px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.pos-card .pos-card-label { color: var(--text-muted); font-size: 12px; }
+.pos-card.pos-warn .pos-card-num { color: var(--color-orange); }
+
+.pos-section-title {
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .06em; margin: 24px 0 12px;
+}
+.pos-chart-wrap {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px; padding: 18px;
+}
+.pos-bar { fill: var(--interactive-accent); opacity: .85; rx: 4; }
+.pos-bar:hover { opacity: 1; }
+.pos-axis { fill: var(--text-faint); font-size: 10px; }
+.pos-bar-val { fill: var(--text-muted); font-size: 10px; font-weight: 600; }
+
+.pos-links {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.pos-link-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 14px; padding: 14px 16px; cursor: pointer;
+  transition: border-color .15s ease, transform .12s ease;
+}
+.pos-link-card:hover {
+  border-color: var(--interactive-accent); transform: translateY(-1px);
+}
+.pos-link-card .pos-link-title { font-weight: 600; font-size: 13.5px; }
+.pos-link-card .pos-link-desc { color: var(--text-faint); font-size: 11px; }
+
+.pos-ring-wrap { display: flex; align-items: center; gap: 18px; }
+.pos-ring-label { font-size: 13px; color: var(--text-muted); }
+.pos-ring-label b { display: block; font-size: 22px; color: var(--text-normal); }

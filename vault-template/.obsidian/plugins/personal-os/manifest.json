@@ -1,7 +1,7 @@
 {
   "id": "personal-os",
   "name": "Personal OS",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minAppVersion": "1.4.0",
   "description": "引导式提问输入 — 把想法丢进 Inbox，剩下交给系统。Personal OS 的官方交互层。",
   "author": "Personal OS Project",

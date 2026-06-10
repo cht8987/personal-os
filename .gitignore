@@ -5,3 +5,4 @@ vault-template/.system/logs/*
 vault-template/01-Inbox/.queue/*
 !vault-template/01-Inbox/.queue/.gitkeep
 __pycache__/
+dist/

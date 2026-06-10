@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hermes 日巡检：消化队列 → 分发 Inbox → 固化 ops-log → 健康告警。
 
-铁律：先本地状态验证，后远程原因推导；只在 ELSON OS MIND/ 内读写。
+铁律：先本地状态验证，后远程原因推导；只在 PERSONAL OS/ 内读写。
 """
 import re
 import shutil

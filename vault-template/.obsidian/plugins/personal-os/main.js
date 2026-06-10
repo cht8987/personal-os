@@ -726,13 +726,13 @@ class POSView extends ItemView {
 
     this.section("💾 备份（库 + Hermes 核心 + Hindsight 数据 → 三个 tar.gz）");
     const bk = this.body.createDiv({ cls: "pos-chart-wrap" });
-    const bkDest = row(bk, "备份目标目录", "默认 NAS：/Volumes/home/Hermas Backup/personal-os", env.POS_BACKUP_DEST || "/Volumes/home/Hermas Backup/personal-os");
+    const bkDest = row(bk, "备份目标目录", "如 NAS 路径或本机目录", env.POS_BACKUP_DEST || (require("os").homedir() + "/PersonalOS-Backups"));
     const bkLog = (await this.readSafe(".system/logs/backup.log")).trim().split("\n").pop() || "（从未备份）";
     const bkRow = bk.createDiv({ cls: "pos-set-row" });
     bkRow.createDiv({ cls: "pos-set-info" }).createDiv({ cls: "pos-set-desc", text: `上次备份：${bkLog}` });
     const bkBtns = bkRow.createDiv({ cls: "pos-actions" });
     let bkAutoOn = false;
-    try { bkAutoOn = require("fs").existsSync(require("os").homedir() + "/Library/LaunchAgents/com.elson.hermes.backup.plist"); } catch {}
+    try { bkAutoOn = require("fs").existsSync(require("os").homedir() + "/Library/LaunchAgents/com.personalos.backup.plist"); } catch {}
     const bkNow = bkBtns.createEl("button", { cls: "pos-btn", text: "立即备份" });
     bkNow.addEventListener("click", () => {
       try {

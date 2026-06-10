@@ -89,7 +89,7 @@ class ChoiceModal extends Modal {
     this.onPick = onPick;
   }
   onOpen() {
-    this.modalEl.addClass("pos-modal");
+    this.modalEl.addClass("pos-modal", "pos-modal-wide");
     const c = this.contentEl;
     const head = c.createDiv({ cls: "pos-head" });
     head.createSpan({ cls: "pos-logo", text: this.opts.icon || "🧠" });

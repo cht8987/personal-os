@@ -1,7 +1,8 @@
-/* Personal OS v0.3 — 视觉层 */
+/* Personal OS v0.5.1 — 视觉层 */
 
 /* ===== 弹窗通用（引导式表单） ===== */
-.pos-modal .modal { max-width: 580px; }
+.pos-modal .modal, .modal.pos-modal { max-width: 600px; }
+.pos-modal-wide .modal, .modal.pos-modal-wide { max-width: 780px !important; width: min(92vw, 780px) !important; }
 .pos-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .pos-head .pos-logo { font-size: 26px; line-height: 1; }
 .pos-head h2 { margin: 0; font-size: 20px; }
@@ -40,21 +41,32 @@
 .pos-hint { color: var(--text-faint); font-size: 11.5px; }
 .pos-submit { padding: 8px 22px; border-radius: 10px; font-weight: 600; }
 
-/* 选择卡片网格（画像向导/产出生成器） */
+/* ===== 选择卡片（Profile 向导 / 产出生成器）— 纵向大卡片 ===== */
 .pos-choice-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px; margin-top: 14px;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)) !important;
+  gap: 12px !important; margin-top: 14px;
 }
-.pos-choice {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 12px; padding: 14px; cursor: pointer; text-align: left;
+.pos-choice, button.pos-choice {
+  -webkit-appearance: none !important; appearance: none !important;
+  box-sizing: border-box !important; cursor: pointer;
+  display: flex !important; flex-direction: column !important;
+  align-items: flex-start !important; justify-content: flex-start !important;
+  gap: 5px !important; margin: 0 !important;
+  width: 100% !important; height: auto !important; min-height: 98px !important;
+  padding: 15px 17px !important;
+  background: var(--background-secondary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  font-family: inherit !important; text-align: left !important;
+  white-space: normal !important; line-height: 1.4 !important;
   transition: border-color .15s, transform .12s;
 }
-.pos-choice:hover { border-color: var(--interactive-accent); transform: translateY(-1px); }
-.pos-choice .pos-choice-icon { font-size: 20px; }
-.pos-choice .pos-choice-title { font-weight: 700; font-size: 13.5px; margin-top: 6px; }
-.pos-choice .pos-choice-desc { color: var(--text-faint); font-size: 11px; margin-top: 2px; line-height: 1.4; }
+.pos-choice:hover { border-color: var(--interactive-accent) !important; transform: translateY(-1px); }
+.pos-choice .pos-choice-icon { display: block !important; font-size: 22px !important; line-height: 1 !important; }
+.pos-choice .pos-choice-title { display: block !important; font-weight: 700 !important; font-size: 14.5px !important; color: var(--text-normal) !important; white-space: normal !important; }
+.pos-choice .pos-choice-desc { display: block !important; font-size: 11.5px !important; color: var(--text-muted) !important; line-height: 1.45 !important; white-space: normal !important; }
 
 /* ===== 多页看板布局 ===== */
 .pos-app { display: flex; height: 100%; overflow: hidden; }
@@ -120,14 +132,12 @@
 .pos-axis { fill: var(--text-faint); font-size: 10px; }
 .pos-bar-val { fill: var(--text-muted); font-size: 10px; font-weight: 600; }
 
-/* 分类占比横条 */
 .pos-cat-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; font-size: 12.5px; }
 .pos-cat-name { width: 56px; color: var(--text-muted); flex-shrink: 0; }
 .pos-cat-track { flex: 1; height: 10px; background: var(--background-modifier-border); border-radius: 5px; overflow: hidden; }
 .pos-cat-fill { height: 100%; background: var(--interactive-accent); border-radius: 5px; }
 .pos-cat-val { width: 86px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; flex-shrink: 0; }
 
-/* 表格列表 */
 .pos-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .pos-table th {
   text-align: left; color: var(--text-muted); font-weight: 600;
@@ -144,7 +154,6 @@
   background: var(--background-modifier-border); font-size: 11px;
 }
 
-/* 任务交互清单 */
 .pos-task-list { display: flex; flex-direction: column; }
 .pos-task {
   display: flex; align-items: center; gap: 10px; padding: 9px 6px;
@@ -156,7 +165,6 @@
 .pos-task.done { color: var(--text-faint); text-decoration: line-through; }
 .pos-task .pos-task-due { margin-left: auto; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 
-/* 链接/项目卡片 */
 .pos-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 11px; }
 .pos-link-card {
   display: flex; align-items: flex-start; gap: 10px;
@@ -173,7 +181,6 @@
 .pos-ring-label { font-size: 12.5px; color: var(--text-muted); }
 .pos-ring-label b { display: block; font-size: 20px; color: var(--text-normal); }
 
-/* 设置页 */
 .pos-set-row {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
   padding: 13px 0; border-bottom: 1px solid var(--background-modifier-border-hover);
@@ -187,7 +194,6 @@
 .pos-ok { color: var(--color-green); font-weight: 600; }
 .pos-bad { color: var(--color-orange); font-weight: 600; }
 
-/* 运维日志 */
 .pos-log {
   background: var(--background-primary-alt); border-radius: 12px;
   padding: 12px 14px; font-family: var(--font-monospace); font-size: 11.5px;

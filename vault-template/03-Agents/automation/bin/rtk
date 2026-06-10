@@ -1,0 +1,98 @@
+#!/bin/bash
+# rtk — OBSIDIAN AI OS 统一 CLI 入口（一切系统操作的唯一通道）
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$BIN_DIR/../../.." && pwd)"
+LIB="$ROOT/03-Agents/automation/lib"
+PY="${RTK_PYTHON:-python3}"
+CRON_LINE="30 23 * * * \"$BIN_DIR/rtk\" patrol >> \"$ROOT/.system/logs/cron.log\" 2>&1"
+
+usage() {
+  cat <<EOF
+rtk — OBSIDIAN AI OS 统一入口
+
+用法:
+  rtk onboard            新人引导：交互式设定个人画像（profile）
+  rtk ingest "文本"      凌乱文本 → 结构化推入 01-Inbox（也支持管道输入）
+  rtk patrol             手动触发 Hermes 日巡检（队列消化+分发+ops-log）
+  rtk status             系统健康状态
+  rtk install-cron       注册每晚 23:30 自动巡检（crontab 方式）
+  rtk uninstall-cron     移除 crontab 巡检
+  rtk install-launchd    注册每晚 23:30 自动巡检（macOS launchd，推荐：睡眠错过会补跑）
+  rtk uninstall-launchd  移除 launchd 巡检
+  rtk help               本帮助
+EOF
+}
+
+PLIST="$HOME/Library/LaunchAgents/com.personalos.patrol.plist"
+
+case "${1:-help}" in
+  onboard)
+    "$PY" "$LIB/onboard.py"
+    ;;
+  ingest)
+    shift
+    if [ $# -gt 0 ]; then "$PY" "$LIB/ingest.py" "$@"; else "$PY" "$LIB/ingest.py"; fi
+    ;;
+  patrol)
+    "$PY" "$LIB/patrol.py"
+    ;;
+  status)
+    echo "=== OBSIDIAN AI OS 状态 ==="
+    echo "根目录   : $ROOT"
+    [ -d "$ROOT/01-Inbox" ] && echo "目录完整 : ✅" || echo "目录完整 : ❌ 01-Inbox 缺失"
+    q=$(find "$ROOT/01-Inbox/.queue" -name '*.txt' 2>/dev/null | wc -l | tr -d ' ')
+    i=$(find "$ROOT/01-Inbox" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    echo "队列积压 : $q 条"
+    echo "Inbox待分发: $i 条"
+    if [ -f "$ROOT/.system/logs/patrol.log" ]; then
+      echo "上次巡检 : $(tail -1 "$ROOT/.system/logs/patrol.log")"
+    else
+      echo "上次巡检 : 从未运行"
+    fi
+    [ -n "${DEEPSEEK_API_KEY:-}" ] && echo "LLM      : deepseek ✅" || echo "LLM      : 未配置(offline 规则引擎降级) ⚠️"
+    ;;
+  install-cron)
+    (crontab -l 2>/dev/null | grep -vF "$BIN_DIR/rtk\" patrol"; echo "$CRON_LINE") | crontab -
+    echo "✅ 已注册: $CRON_LINE"
+    ;;
+  uninstall-cron)
+    crontab -l 2>/dev/null | grep -vF "$BIN_DIR/rtk\" patrol" | crontab -
+    echo "✅ 已移除巡检 Cron"
+    ;;
+  install-launchd)
+    mkdir -p "$HOME/Library/LaunchAgents" "$ROOT/.system/logs"
+    # TCC 按可执行文件真实路径精确匹配授权，必须解析掉所有 stub/symlink
+    PYBIN="$("$PY" -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+    cat > "$PLIST" <<PEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.personalos.patrol</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$PYBIN</string>
+    <string>$LIB/patrol.py</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>30</integer></dict>
+  <key>StandardOutPath</key><string>$ROOT/.system/logs/launchd.log</string>
+  <key>StandardErrorPath</key><string>$ROOT/.system/logs/launchd.log</string>
+</dict>
+</plist>
+PEOF
+    launchctl unload "$PLIST" 2>/dev/null || true
+    launchctl load "$PLIST"
+    echo "✅ launchd 已注册：每晚 23:30 巡检（睡眠错过将在唤醒后补跑）"
+    echo "   手动触发验证: launchctl start com.personalos.patrol"
+    ;;
+  uninstall-launchd)
+    launchctl unload "$PLIST" 2>/dev/null || true
+    rm -f "$PLIST"
+    echo "✅ 已移除 launchd 巡检"
+    ;;
+  help|--help|-h) usage ;;
+  *) echo "未知命令: $1"; usage; exit 1 ;;
+esac

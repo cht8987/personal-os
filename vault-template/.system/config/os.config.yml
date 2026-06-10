@@ -1,0 +1,37 @@
+# OBSIDIAN AI OS 全局配置（用户层唯一需要关心的配置文件）
+os:
+  name: "PERSONAL OS"
+  version: "1.0.0"
+  root: "/Volumes/home/main/Project/PERSONAL OS"
+  timezone: "Asia/Shanghai"
+
+ingest:
+  # 可插拔适配器：shortcuts(iOS快捷指令同步目录) / telegram / cli
+  active_adapter: "shortcuts"
+  queue_dir: "01-Inbox/.queue"     # 快捷指令投递的纯文本队列
+  adapters:
+    shortcuts:
+      enabled: true
+      poll_glob: "*.txt"           # 队列内待消化的文件模式
+    telegram:
+      enabled: false
+      bot_token_env: "TG_BOT_TOKEN"   # 凭据只放环境变量，禁止写入本文件
+      allowed_chat_ids: []
+    cli:
+      enabled: true
+
+llm:
+  # 务实选型：日常自动化走高性价比模型；重构任务交给 Claude Code 人工调度
+  provider: "deepseek"
+  model: "deepseek-chat"
+  api_key_env: "DEEPSEEK_API_KEY"     # 凭据只放环境变量
+  fallback: "offline"                  # API 不可用时：原文落 Inbox 打 #needs-review
+
+hermes:
+  patrol_cron: "30 23 * * *"          # 每晚 23:30 日巡检
+  log_dir: ".system/logs"
+  log_retention_days: 90
+  inbox_max_idle_days: 3              # Inbox 条目滞留超过 N 天 → 巡检报告告警
+
+output:
+  report_cadence: "weekly"            # 周报；月报由周报聚合

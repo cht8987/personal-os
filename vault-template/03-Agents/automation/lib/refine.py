@@ -92,7 +92,7 @@ def refine_note(p, titles):
     day_dir.mkdir(parents=True, exist_ok=True)
     (day_dir / p.name).write_text(raw, encoding="utf-8")   # 原文备份
     p.write_text(resp.strip() + "\n", encoding="utf-8")
-    log(f"✨ 精修完成: {p.relative_to(ROOT)}（备份于 {day_dir.relative_to(ROOT)}）")
+    log(f"✨ 精修完成: {p.relative_to(ROOT)}（备份于 {day_dir}）")
     return True
 
 

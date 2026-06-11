@@ -677,7 +677,7 @@ class POSView extends ItemView {
     this.hero("与 Agents 协作", "这套 OS 的精髓：你做决定，Agents 干活", [
       { text: "打开完整指南", ghost: true, fn: () => this.openNote("03-Agents/AGENTS-GUIDE.md") },
     ]);
-    this.section("常用指令（点卡片复制，粘贴给 Hermes Console / Claude）");
+    this.section("常用指令（点卡片复制，粘贴给 OS-MIND Console / Claude）");
     const prompts = [
       ["📊", "生成本周报告", "读取本周的 02-Memory/dynamic/ops-log/ 日报与账本，按 .system/templates/report.template.md 的结构，把 04-Output/Report/ 中最新的 report 草稿补写完整。数据必须可溯源，不得编造。"],
       ["🧹", "整理这篇笔记", "读取当前打开的笔记，优化结构与措辞（保留全部事实），为相关概念添加 [[双链]]，更新 updated 日期。改动前先告诉我你的修改计划。"],
@@ -690,7 +690,7 @@ class POSView extends ItemView {
     prompts.forEach(([icon, title, text]) => {
       this.linkCard(grid, icon, title, "点击复制指令", async () => {
         await navigator.clipboard.writeText(text);
-        new Notice("✅ 已复制，粘贴给 Hermes Console 或 Claude 即可");
+        new Notice("✅ 已复制，粘贴给 OS-MIND Console 或 Claude 即可");
       });
     });
     this.section("协作指南（完整版）");
@@ -701,7 +701,7 @@ class POSView extends ItemView {
 
   /* ================= 页面：运维 ================= */
   async renderOps() {
-    this.hero("运维 · Ops-Log 与自动化", "Hermes 每晚 23:30 巡检；这里随时手动触发", [
+    this.hero("运维 · Ops-Log 与自动化", "OS-MIND 每晚 23:30 巡检；这里随时手动触发", [
       { text: "▶️ 立即巡检", fn: () => this.runPatrol() },
       { text: "打开今日报告", ghost: true, fn: () => this.openNote(`02-Memory/dynamic/ops-log/${today()}.md`) },
     ]);
@@ -827,7 +827,7 @@ class POSView extends ItemView {
       r.createDiv({ cls: "pos-set-desc", text: v });
     });
 
-    this.section("💾 备份（库 + Hermes 核心 + Hindsight 数据 → 三个 tar.gz）");
+    this.section("💾 备份（库 + OS-MIND 核心 + Hindsight 数据 → 三个 tar.gz）");
     const bk = this.body.createDiv({ cls: "pos-chart-wrap" });
     const bkDest = row(bk, "备份目标目录", "如 NAS 路径或本机目录", env.POS_BACKUP_DEST || (require("os").homedir() + "/PersonalOS-Backups"));
     const bkLog = (await this.readSafe(".system/logs/backup.log")).trim().split("\n").pop() || "（从未备份）";
@@ -1138,7 +1138,7 @@ module.exports = class PersonalOSPlugin extends Plugin {
       const ym = thisYM();
       // 产出闭环：草稿自带 Agent Brief（指令 + 数据引用清单）
       const brief = `\n\n---\n\n## 🤖 Agent Brief（完成后删除本区块）\n\n` +
-        `> 把下面的指令粘贴给 Hermes Console 或 Claude：\n\n` +
+        `> 把下面的指令粘贴给 OS-MIND Console 或 Claude：\n\n` +
         `\`\`\`\n请完成产出草稿 ${p}：\n` +
         `1. 读取数据源：02-Memory/dynamic/ops-log/（本期日报）、cost-${ym}.md（账本）、dynamic/journal/（日记）\n` +
         `2. 主题方向：${v.note || v.title}\n` +
@@ -1147,7 +1147,7 @@ module.exports = class PersonalOSPlugin extends Plugin {
       await view.writeNote(p, body + brief);
       const cmd = `请完成产出草稿 ${p}：读取 ops-log/账本/日记数据源，主题「${v.note || v.title}」，按草稿结构补写完整内容（数据可溯源、不编造、不引用 private），完成后删除 Agent Brief 区块，保持 status: draft 待我审阅。`;
       try { await navigator.clipboard.writeText(cmd); } catch {}
-      new Notice("✅ 草稿已生成，Agent 指令已复制——粘贴给 Hermes Console 即可补写完整内容", 8000);
+      new Notice("✅ 草稿已生成，Agent 指令已复制——粘贴给 OS-MIND Console 即可补写完整内容", 8000);
       if (after) after();
     }).open();
   }

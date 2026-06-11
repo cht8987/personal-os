@@ -31,7 +31,8 @@ class FormModal extends Modal {
     this.onSubmit = onSubmit;
   }
   onOpen() {
-    this.modalEl.addClass("pos-modal");
+    try {
+      this.modalEl.addClass("pos-modal");
     const c = this.contentEl;
     const head = c.createDiv({ cls: "pos-head" });
     head.createSpan({ cls: "pos-logo", text: this.opts.icon || "🧠" });
@@ -69,17 +70,34 @@ class FormModal extends Modal {
     c.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") this.submit();
     });
-    const first = Object.values(this.widgets)[0];
-    if (first) first.focus();
+    if (!IS_MOBILE) {
+      const first = Object.values(this.widgets)[0];
+      if (first) first.focus();
+    }
+    } catch (e) {
+      new Notice("弹窗加载失败，请重试");
+      this.close();
+    }
   }
   submit(handler) {
     const v = {};
     for (const k in this.widgets) v[k] = this.widgets[k].value.trim();
     if (this.opts.require && !v[this.opts.require]) { new Notice("必填项还没填哦"); return; }
-    (handler || this.onSubmit)(v);
+    const fn = handler || this.onSubmit;
+    try {
+      const result = fn(v);
+      if (result && typeof result.catch === "function") {
+        result.catch(e => { new Notice("操作失败: " + (e.message || "写入异常")); });
+      }
+    } catch (e) {
+      new Notice("操作失败: " + (e.message || "写入异常"));
+    }
     this.close();
   }
-  onClose() { this.contentEl.empty(); }
+  onClose() {
+    this.contentEl.empty();
+    if (IS_MOBILE && document.activeElement) document.activeElement.blur();
+  }
 }
 
 /* ================= 选择卡片弹窗 ================= */
@@ -90,7 +108,8 @@ class ChoiceModal extends Modal {
     this.onPick = onPick;
   }
   onOpen() {
-    this.modalEl.addClass("pos-modal", "pos-modal-wide");
+    try {
+      this.modalEl.addClass("pos-modal", "pos-modal-wide");
     const c = this.contentEl;
     const head = c.createDiv({ cls: "pos-head" });
     head.createSpan({ cls: "pos-logo", text: this.opts.icon || "🧠" });
@@ -103,9 +122,17 @@ class ChoiceModal extends Modal {
       card.createDiv({ cls: "pos-choice-title", text: ch.title });
       if (ch.desc) card.createDiv({ cls: "pos-choice-desc", text: ch.desc });
       card.addEventListener("click", () => { this.close(); this.onPick(ch); });
+      if (IS_MOBILE) card.addEventListener("touchend", (e) => { e.preventDefault(); this.close(); this.onPick(ch); });
     });
+    } catch (e) {
+      new Notice("选择面板加载失败，请重试");
+      this.close();
+    }
   }
-  onClose() { this.contentEl.empty(); }
+  onClose() {
+    this.contentEl.empty();
+    if (IS_MOBILE && document.activeElement) document.activeElement.blur();
+  }
 }
 
 /* ================= 画像向导配置（吸收旧 OS Structure 细节） ================= */
@@ -260,12 +287,14 @@ class POSView extends ItemView {
     });
   }
   linkCard(parent, icon, title, desc, fn) {
-    const c = parent.createDiv({ cls: "pos-link-card" });
+    const c = parent.createDiv({ cls: "pos-link-card", attr: { role: "button", tabindex: "0" } });
     c.createSpan({ text: icon });
     const t = c.createDiv();
     t.createDiv({ cls: "pos-link-title", text: title });
     if (desc) t.createDiv({ cls: "pos-link-desc", text: desc });
     c.addEventListener("click", fn);
+    if (IS_MOBILE) c.addEventListener("touchend", (e) => { e.preventDefault(); fn(); });
+    c.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } });
   }
 
   /* ---------- 数据采集 ---------- */
@@ -625,7 +654,7 @@ class POSView extends ItemView {
     const table = hw.createEl("table", { cls: "pos-table" });
     const hr = table.createEl("tr");
     ["Bank", "对应板块", "职责"].forEach((h) => hr.createEl("th", { text: h }));
-    [["bank-os", "static/os/", "身份·原则·系统治理"], ["bank-projects", "static/projects/", "项目状态与决策"], ["bank-learning", "static/learning/", "知识锚点与Wiki"]].forEach(([a, b, c]) => {
+    [["elson-os", "static/os/", "身份·原则·系统治理"], ["elson-projects", "static/projects/", "项目状态与决策"], ["elson-learning", "static/learning/", "知识锚点与Wiki"]].forEach(([a, b, c]) => {
       const tr = table.createEl("tr");
       tr.createEl("td", { text: a }); tr.createEl("td", { text: b }); tr.createEl("td", { text: c });
     });
@@ -703,7 +732,11 @@ class POSView extends ItemView {
   /* ================= 页面：运维 ================= */
   async renderOps() {
     const opsActions = [{ text: "打开今日报告", ghost: true, fn: () => this.openNote(`02-Memory/dynamic/ops-log/${today()}.md`) }];
-    if (!IS_MOBILE) opsActions.unshift({ text: "▶️ 立即巡检", fn: () => this.runPatrol() });
+    if (!IS_MOBILE) {
+      opsActions.unshift({ text: "▶️ 立即巡检", fn: () => this.runPatrol() });
+    } else {
+      opsActions.unshift({ text: "📱 请求桌面巡检", fn: () => this.requestPatrol() });
+    }
     this.hero("运维 · Ops-Log 与自动化", IS_MOBILE ? "自动化运行在 Mac 上；此处查看结果" : "OS-MIND 每晚 23:30 巡检；这里随时手动触发", opsActions);
     const q = (await this.listSafe("01-Inbox/.queue")).files.filter((f) => f.endsWith(".txt")).length;
     const inbox = (await this.listSafe("01-Inbox")).files.filter((f) => f.endsWith(".md")).length;
@@ -734,6 +767,16 @@ class POSView extends ItemView {
         this.render();
       });
     } catch (e) { new Notice("当前环境不支持直接执行（请在终端运行 rtk patrol）"); }
+  }
+  async requestPatrol() {
+    try {
+      const dir = "01-Inbox/.queue";
+      if (!(await this.app.vault.adapter.exists(dir))) await this.app.vault.adapter.mkdir(dir);
+      await this.app.vault.adapter.write(`${dir}/q-mobile-patrol-request-${nowStamp()}.txt`,
+        `# 📱 手机端请求桌面巡检\n> 时间：${today()}\n> 请桌面端尽快运行 rtk patrol\n`);
+      new Notice("✅ 已发送巡检请求——桌面端下次运行时处理", 5000);
+      this.render();
+    } catch (e) { new Notice("请求发送失败，请稍后重试"); }
   }
 
   /* ================= 页面：设置 ================= */
@@ -834,13 +877,13 @@ class POSView extends ItemView {
 
     this.section("💾 备份（库 + OS-MIND 核心 + Hindsight 数据 → 三个 tar.gz）");
     const bk = this.body.createDiv({ cls: "pos-chart-wrap" });
-    const bkDest = row(bk, "备份目标目录", "如 NAS 路径或本机目录", env.POS_BACKUP_DEST || (require("os").homedir() + "/PersonalOS-Backups"));
+    const bkDest = row(bk, "备份目标目录", "默认 NAS：/Volumes/home/Hermas Backup/personal-os", env.POS_BACKUP_DEST || "/Volumes/home/Hermas Backup/personal-os");
     const bkLog = (await this.readSafe(".system/logs/backup.log")).trim().split("\n").pop() || "（从未备份）";
     const bkRow = bk.createDiv({ cls: "pos-set-row" });
     bkRow.createDiv({ cls: "pos-set-info" }).createDiv({ cls: "pos-set-desc", text: `上次备份：${bkLog}` });
     const bkBtns = bkRow.createDiv({ cls: "pos-actions" });
     let bkAutoOn = false;
-    try { bkAutoOn = require("fs").existsSync(require("os").homedir() + "/Library/LaunchAgents/com.personalos.backup.plist"); } catch {}
+    try { bkAutoOn = require("fs").existsSync(require("os").homedir() + "/Library/LaunchAgents/com.elson.hermes.backup.plist"); } catch {}
     const bkNow = bkBtns.createEl("button", { cls: "pos-btn", text: "立即备份" });
     bkNow.addEventListener("click", () => {
       try {

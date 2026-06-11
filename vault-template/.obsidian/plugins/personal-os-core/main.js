@@ -2,7 +2,8 @@
  * 页面：总览 / 财务 / 目标任务 / 项目 / 知识 / 产出 / 运维 / 设置
  * 数据层 = 纯 Markdown；本插件只是可替换的显示层。
  */
-const { Plugin, Modal, Notice, ItemView, PluginSettingTab, Setting, MarkdownRenderer, requestUrl } = require("obsidian");
+const { Plugin, Modal, Notice, ItemView, PluginSettingTab, Setting, MarkdownRenderer, requestUrl, Platform } = require("obsidian");
+const IS_MOBILE = Platform.isMobileApp || Platform.isMobile;
 
 const VIEW_TYPE = "personal-os-core-dashboard";
 const DEFAULTS = {
@@ -701,10 +702,9 @@ class POSView extends ItemView {
 
   /* ================= 页面：运维 ================= */
   async renderOps() {
-    this.hero("运维 · Ops-Log 与自动化", "OS-MIND 每晚 23:30 巡检；这里随时手动触发", [
-      { text: "▶️ 立即巡检", fn: () => this.runPatrol() },
-      { text: "打开今日报告", ghost: true, fn: () => this.openNote(`02-Memory/dynamic/ops-log/${today()}.md`) },
-    ]);
+    const opsActions = [{ text: "打开今日报告", ghost: true, fn: () => this.openNote(`02-Memory/dynamic/ops-log/${today()}.md`) }];
+    if (!IS_MOBILE) opsActions.unshift({ text: "▶️ 立即巡检", fn: () => this.runPatrol() });
+    this.hero("运维 · Ops-Log 与自动化", IS_MOBILE ? "自动化运行在 Mac 上；此处查看结果" : "OS-MIND 每晚 23:30 巡检；这里随时手动触发", opsActions);
     const q = (await this.listSafe("01-Inbox/.queue")).files.filter((f) => f.endsWith(".txt")).length;
     const inbox = (await this.listSafe("01-Inbox")).files.filter((f) => f.endsWith(".md")).length;
     const patrolLog = await this.readSafe(".system/logs/patrol.log");
@@ -743,6 +743,11 @@ class POSView extends ItemView {
     const envPath = this.plugin.envFilePath();
     const env = this.plugin.readEnvFile();
 
+    if (IS_MOBILE) {
+      this.section("📱 移动端说明");
+      const mw = this.body.createDiv({ cls: "pos-chart-wrap" });
+      mw.createDiv({ cls: "pos-set-desc", text: "LLM 配置 / 备份 / NAS 收件箱由 Mac 桌面端统一管理（密钥存于 Mac 本机库外，手机无需也不应持有）。本页其余设置照常可用。" });
+    }
     this.section("LLM 智能分流（写入库外 " + envPath + "，符合隐私铁律）");
     const llmWrap = this.body.createDiv({ cls: "pos-chart-wrap" });
     const row = (parent, name, desc, value, type = "text") => {

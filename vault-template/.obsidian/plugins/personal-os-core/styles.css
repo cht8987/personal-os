@@ -203,3 +203,35 @@
 .pos-md { font-size: 13px; }
 .pos-md table { font-size: 12.5px; }
 .pos-empty { color: var(--text-faint); font-size: 12.5px; padding: 14px 4px; }
+
+
+/* ===== v0.7 手机端响应式（窄屏 <700px）===== */
+@media (max-width: 700px) {
+  .pos-app { flex-direction: column !important; }
+  .pos-nav {
+    width: 100% !important; flex-direction: row !important;
+    overflow-x: auto !important; overflow-y: hidden !important;
+    padding: 8px 10px !important; gap: 4px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--background-modifier-border) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pos-nav-brand, .pos-nav-spacer { display: none !important; }
+  .pos-nav-item { flex-shrink: 0 !important; padding: 9px 12px !important; font-size: 13.5px !important; }
+  .pos-nav > .pos-btn { flex-shrink: 0; margin-left: 6px; }
+  .pos-main { padding: 16px 14px !important; }
+  .pos-dash-hero h1 { font-size: 19px !important; }
+  .pos-cards { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+  .pos-links { grid-template-columns: 1fr 1fr !important; gap: 9px !important; }
+  .pos-choice-grid { grid-template-columns: 1fr 1fr !important; }
+  .pos-link-card { padding: 13px 13px !important; min-height: 44px; }
+  .pos-btn { padding: 10px 16px !important; min-height: 40px; }
+  .pos-task { padding: 12px 6px !important; }
+  .pos-task input[type="checkbox"] { width: 22px; height: 22px; }
+  .pos-set-row { flex-direction: column; align-items: flex-start !important; gap: 8px; }
+  .pos-set-row input[type="text"], .pos-set-row input[type="password"] { width: 100% !important; }
+  .pos-table { font-size: 11.5px !important; }
+  .pos-modal .modal, .modal.pos-modal, .pos-modal-wide .modal, .modal.pos-modal-wide {
+    max-width: 96vw !important; width: 96vw !important;
+  }
+}

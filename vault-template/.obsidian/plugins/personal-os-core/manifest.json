@@ -1,0 +1,9 @@
+{
+  "id": "personal-os-core",
+  "name": "Personal OS 看板",
+  "version": "0.6.0",
+  "minAppVersion": "1.4.0",
+  "description": "个人 AI 操作系统的官方界面：十一页看板 + 全套引导式输入。（独立 ID，与社区同名插件互不冲突）",
+  "author": "Personal OS Project",
+  "isDesktopOnly": false
+}

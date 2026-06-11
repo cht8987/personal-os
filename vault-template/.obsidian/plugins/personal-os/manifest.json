@@ -1,9 +1,0 @@
-{
-  "id": "personal-os",
-  "name": "Personal OS",
-  "version": "0.5.1",
-  "minAppVersion": "1.4.0",
-  "description": "个人 AI 操作系统的官方界面：多页看板（总览/财务/目标/项目/知识/产出/运维/设置）+ 全套引导式输入。",
-  "author": "Personal OS Project",
-  "isDesktopOnly": false
-}

@@ -4,7 +4,7 @@
  */
 const { Plugin, Modal, Notice, ItemView, PluginSettingTab, Setting, MarkdownRenderer, requestUrl } = require("obsidian");
 
-const VIEW_TYPE = "personal-os-dashboard";
+const VIEW_TYPE = "personal-os-core-dashboard";
 const DEFAULTS = {
   currency: "RM",
   autoOpen: true,
@@ -143,6 +143,8 @@ const PAGES = [
   { id: "finance", icon: "💰", label: "财务" },
   { id: "goals", icon: "🎯", label: "目标与任务" },
   { id: "projects", icon: "📦", label: "项目" },
+  { id: "life", icon: "🌱", label: "生活" },
+  { id: "memory", icon: "🧬", label: "记忆" },
   { id: "knowledge", icon: "📚", label: "知识" },
   { id: "output", icon: "📤", label: "产出" },
   { id: "agents", icon: "🤖", label: "Agents" },
@@ -222,6 +224,7 @@ class POSView extends ItemView {
       home: () => this.renderHome(), finance: () => this.renderFinance(),
       goals: () => this.renderGoals(), projects: () => this.renderProjects(),
       knowledge: () => this.renderKnowledge(), output: () => this.renderOutput(),
+      life: () => this.renderLife(), memory: () => this.renderMemory(),
       agents: () => this.renderAgents(),
       ops: () => this.renderOps(), settings: () => this.renderSettings(),
     }[this.page];
@@ -401,6 +404,13 @@ class POSView extends ItemView {
     this.linkCard(links, "🤖", "Agents 协作", "常用指令 + 工作流指南", () => { this.page = "agents"; this.render(); });
     this.linkCard(links, "🛡", "Ops-Log 巡检", "自动化与日志", () => { this.page = "ops"; this.render(); });
     this.linkCard(links, "⚙️", "系统设置", "LLM / 语言 / 币种 / 手机端", () => { this.page = "settings"; this.render(); });
+
+    this.section("看板");
+    const dash = this.body.createDiv({ cls: "pos-links" });
+    this.linkCard(dash, "🌱", "生活看板", "心情 · 日记节奏 · 聚焦", () => { this.page = "life"; this.render(); });
+    this.linkCard(dash, "📦", "项目看板", "项目卡片墙", () => { this.page = "projects"; this.render(); });
+    this.linkCard(dash, "🧬", "记忆看板", "静态库健康度 + 待复审", () => { this.page = "memory"; this.render(); });
+    this.linkCard(dash, "💰", "财务看板", "账本 · 柱状图 · 分类占比", () => { this.page = "finance"; this.render(); });
   }
 
   /* ================= 页面：财务 ================= */
@@ -525,6 +535,99 @@ class POSView extends ItemView {
       const status = get("status") || get("project-phase") || "";
       this.linkCard(wrap, "📦", name, status ? `状态：${status}` : "", () => this.openNote(f));
     }
+  }
+
+  /* ================= 页面：生活（原 life-dashboard 收编） ================= */
+  async renderLife() {
+    this.hero("生活", "心情 · 日记节奏 · 目标与聚焦", [
+      { text: "🎯 设定目标", fn: () => this.plugin.createGoal(this, () => this.render()) },
+      { text: "＋ 记录", ghost: true, fn: () => this.plugin.openCapture(() => this.render()) },
+    ]);
+    const y = new Date().getFullYear();
+    const ym = thisYM();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 864e5);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const raw = await this.readSafe(`02-Memory/dynamic/journal/${key.slice(0, 4)}/${key}.md`);
+      const mood = (raw.match(/^mood:\s*"?([^"\n]*)"?/m) || [])[1] || "";
+      days.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, has: !!raw, mood });
+    }
+    let streak = 0;
+    for (let i = days.length - 1; i >= 0 && days[i].has; i--) streak++;
+    const journalDays = (await this.listSafe(`02-Memory/dynamic/journal/${y}`)).files.filter((f) => f.includes(`/${ym}-`)).length;
+    const learnCount = (await this.listSafe(`02-Memory/dynamic/raw/learning/${y}`)).files.filter((f) => f.endsWith(".md")).length;
+    const cards = this.body.createDiv({ cls: "pos-cards" });
+    this.card(cards, "📓", journalDays, "本月日记天数");
+    this.card(cards, "🔥", streak, "连续记录（天）", streak >= 3 ? "pos-good" : "");
+    this.card(cards, "📚", learnCount, "今年学习篇数");
+    this.card(cards, "🌤", days.filter((d) => d.mood).length, "近7天有心情记录");
+
+    this.section("近 7 天");
+    const week = this.body.createDiv({ cls: "pos-cards" });
+    days.forEach((d) => {
+      const c = week.createDiv({ cls: "pos-card" });
+      c.createDiv({ cls: "pos-card-icon", text: d.has ? (d.mood || "📝") : "·" });
+      c.createDiv({ cls: "pos-card-label", text: d.label });
+    });
+
+    this.section("30 天聚焦", [{ text: "编辑", fn: () => this.openNote("02-Memory/static/os/profile/goals/30-day-focus.md") }]);
+    const focusWrap = this.body.createDiv({ cls: "pos-chart-wrap pos-md" });
+    const focus = await this.readSafe("02-Memory/static/os/profile/goals/30-day-focus.md");
+    if (focus) await MarkdownRenderer.render(this.app, focus.replace(/^---[\s\S]*?---/, ""), focusWrap, "/", this);
+    else focusWrap.createDiv({ cls: "pos-empty", text: "还没设定 30 天聚焦——目标页或 rtk onboard 可设定" });
+
+    this.section("年度目标", [{ text: "打开目标库", fn: () => this.openNote("02-Memory/static/os/profile/goals") }]);
+    const goalWrap = this.body.createDiv({ cls: "pos-chart-wrap pos-md" });
+    const gfiles = (await this.listSafe("02-Memory/static/os/profile/goals")).files
+      .filter((f) => f.toLowerCase().includes("goal") && f.endsWith(".md") && !f.endsWith("README.md"));
+    if (gfiles.length) {
+      const g = await this.readSafe(gfiles[0]);
+      await MarkdownRenderer.render(this.app, g.replace(/^---[\s\S]*?---/, ""), goalWrap, gfiles[0], this);
+    } else goalWrap.createDiv({ cls: "pos-empty", text: "还没有年度目标文件" });
+  }
+
+  /* ================= 页面：记忆（原 memory-dashboard 收编） ================= */
+  async renderMemory() {
+    this.hero("记忆", "双轨记忆健康度 · static 静态库总览", [
+      { text: "Active-Context", fn: () => this.openNote("02-Memory/static/os/profile/goals/active-context.md") },
+      { text: "Hindsight 对接", ghost: true, fn: () => this.openNote(".system/config/HINDSIGHT.md") },
+    ]);
+    const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith("02-Memory/static/"));
+    const seg = { os: 0, projects: 0, learning: 0 };
+    const review = [], recent = [];
+    for (const f of files) {
+      const part = f.path.split("/")[2];
+      if (seg[part] !== undefined) seg[part]++;
+      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter;
+      if (fm && (fm.status === "review" || fm.status === "uncertain")) review.push(f);
+      recent.push(f);
+    }
+    recent.sort((a, b) => b.stat.mtime - a.stat.mtime);
+    const cards = this.body.createDiv({ cls: "pos-cards" });
+    this.card(cards, "🪪", seg.os, "os（画像与原则）");
+    this.card(cards, "📦", seg.projects, "projects");
+    this.card(cards, "📚", seg.learning, "learning（含Wiki）");
+    this.card(cards, "🔍", review.length, "待复审", review.length ? "pos-warn" : "pos-good");
+
+    this.section("待复审（status: review / uncertain）");
+    const rw = this.body.createDiv({ cls: "pos-links" });
+    if (!review.length) rw.createDiv({ cls: "pos-empty", text: "没有待复审条目 ✨" });
+    review.slice(0, 9).forEach((f) => this.linkCard(rw, "🔍", f.basename, f.parent.name, () => this.openNote(f.path)));
+
+    this.section("最近固化");
+    const nw = this.body.createDiv({ cls: "pos-links" });
+    recent.slice(0, 9).forEach((f) => this.linkCard(nw, "🧬", f.basename, new Date(f.stat.mtime).toLocaleDateString("zh-CN"), () => this.openNote(f.path)));
+
+    this.section("Hindsight 语义召回（三 bank 对应）");
+    const hw = this.body.createDiv({ cls: "pos-chart-wrap" });
+    const table = hw.createEl("table", { cls: "pos-table" });
+    const hr = table.createEl("tr");
+    ["Bank", "对应板块", "职责"].forEach((h) => hr.createEl("th", { text: h }));
+    [["elson-os", "static/os/", "身份·原则·系统治理"], ["elson-projects", "static/projects/", "项目状态与决策"], ["elson-learning", "static/learning/", "知识锚点与Wiki"]].forEach(([a, b, c]) => {
+      const tr = table.createEl("tr");
+      tr.createEl("td", { text: a }); tr.createEl("td", { text: b }); tr.createEl("td", { text: c });
+    });
   }
 
   /* ================= 页面：知识 ================= */

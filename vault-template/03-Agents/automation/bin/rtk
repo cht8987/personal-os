@@ -2,7 +2,14 @@
 # rtk — OBSIDIAN AI OS 统一 CLI 入口（一切系统操作的唯一通道）
 set -euo pipefail
 
-BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 解析软链（如 ~/.local/bin/pos → 库内 rtk），确保 ROOT 始终指向真实库根
+SRC="${BASH_SOURCE[0]}"
+while [ -h "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [ "${SRC#/}" = "$SRC" ] && SRC="$DIR/$SRC"
+done
+BIN_DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
 ROOT="$(cd "$BIN_DIR/../../.." && pwd)"
 LIB="$ROOT/03-Agents/automation/lib"
 PY="${RTK_PYTHON:-python3}"

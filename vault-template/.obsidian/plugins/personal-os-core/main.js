@@ -624,7 +624,7 @@ class POSView extends ItemView {
     const table = hw.createEl("table", { cls: "pos-table" });
     const hr = table.createEl("tr");
     ["Bank", "对应板块", "职责"].forEach((h) => hr.createEl("th", { text: h }));
-    [["elson-os", "static/os/", "身份·原则·系统治理"], ["elson-projects", "static/projects/", "项目状态与决策"], ["elson-learning", "static/learning/", "知识锚点与Wiki"]].forEach(([a, b, c]) => {
+    [["bank-os", "static/os/", "身份·原则·系统治理"], ["bank-projects", "static/projects/", "项目状态与决策"], ["bank-learning", "static/learning/", "知识锚点与Wiki"]].forEach(([a, b, c]) => {
       const tr = table.createEl("tr");
       tr.createEl("td", { text: a }); tr.createEl("td", { text: b }); tr.createEl("td", { text: c });
     });

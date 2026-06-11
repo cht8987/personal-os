@@ -21,7 +21,7 @@ from ingest import call_llm_raw, ROOT  # noqa: E402
 
 STATIC = ROOT / "02-Memory" / "static"
 INBOX_LEGACY = ROOT / "01-Inbox" / "legacy"
-BACKUP = ROOT / ".system" / "backups" / "refine"
+BACKUP = Path(os.environ.get("POS_ARCHIVE", str(ROOT / ".system" / "backups"))) / "refine"
 LOGS = ROOT / ".system" / "logs"
 LANG = os.environ.get("POS_LANG", "zh")
 MAX_REFINE = 3      # 每次精修篇数上限（控成本）

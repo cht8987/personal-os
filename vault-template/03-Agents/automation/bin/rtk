@@ -70,12 +70,21 @@ case "${1:-help}" in
     if [ -x "$HOME/.hermes/scripts/hindsight-pg-dump-nas.sh" ]; then
       bash "$HOME/.hermes/scripts/hindsight-pg-dump-nas.sh" && echo "  ✅ hindsight（pg_dump → Hindsight Backup/）" || echo "  ⚠️ hindsight dump 失败/跳过"
     fi
-    # 保留最近 14 份，旧的清掉
-    for pfx in vault hermes-core; do
-      ls -t "$DEST/$pfx-"*.tar.gz 2>/dev/null | tail -n +15 | xargs rm -f 2>/dev/null || true
-    done
+    # 统一保留策略：日备 7 天自动清理（带标签的里程碑快照不受影响；周镜像 28 天）
+    find "$DEST" -maxdepth 1 -name 'vault-*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+    find "$DEST" -maxdepth 1 -name 'pre-sync-*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+    if [ -d "$HOME/PersonalOS-Backups/hermes" ]; then
+      find "$HOME/PersonalOS-Backups/hermes" -maxdepth 1 -name 'hermes-2*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+      find "$HOME/PersonalOS-Backups/hermes" -maxdepth 1 -name 'hermes-self-evolution-output-*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+      find "$HOME/PersonalOS-Backups/hermes" -maxdepth 1 -name 'hermes-core-*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+    fi
+    if [ -d "$HOME/PersonalOS-Backups/hindsight" ]; then
+      find "$HOME/PersonalOS-Backups/hindsight" -maxdepth 1 -name 'hindsight-pgdump-2*.sql.gz' -mtime +7 -delete 2>/dev/null || true
+      find "$HOME/PersonalOS-Backups/hindsight" -maxdepth 1 -name 'hindsight-2*.tar.gz' -mtime +7 -delete 2>/dev/null || true
+    fi
+    echo "  🧹 7天保留策略已执行（里程碑快照与镜像豁免）"
     echo "$(date '+%Y-%m-%d %H:%M:%S') backup → $DEST" >> "$ROOT/.system/logs/backup.log"
-    echo "✅ 备份完成（保留最近14份）"
+    echo "✅ 备份完成（日备保留7天）"
     ;;
   backup-auto)
     BPLIST="$HOME/Library/LaunchAgents/com.personalos.backup.plist"

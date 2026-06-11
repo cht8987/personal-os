@@ -935,7 +935,7 @@ module.exports = class PersonalOSPlugin extends Plugin {
     const fs = require("fs"), os = require("os");
     const dir = os.homedir() + "/.personal-os";
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const body = Object.entries(obj).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("\n") + "\n";
+    const body = Object.entries(obj).filter(([, v]) => v).map(([k, v]) => `${k}=${String(v).includes(" ") ? `"${v}"` : v}`).join("\n") + "\n";
     fs.writeFileSync(this.envFilePath(), body, { mode: 0o600 });
   }
 
